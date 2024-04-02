@@ -2,9 +2,9 @@
 # 第6回研究会 (2024/6/14) サンプルコード
 # 作成者: 平松 薫
 #
-# 04_acc_1.py: センサの設置方向を取得するプログラム #
+# 04_acc_1.py: 最新の加速度データを取得するプログラム #
 # 
-# 使い方: python 03_gravity.py
+# 使い方: python 04_acc_1.py
 #
 
 import serial
@@ -37,13 +37,13 @@ ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
-    while(100):
-        # センサの設置方向を取得
+    i = 0
+    while ser.isOpen() and i < 100:
+        # 最新加速度データを取得
         command = bytearray([0x52, 0x42, # Header
                             0x05, 0x00, # Length
                             0x01, # Read 0x01, Write 0x02
-                            #  0x02, 0x54]) # 設置方向取得 (0x5402 をリトルエンディアンで送信)
-                            0x13, 0x50]) # 最新データを取得 (0x5013 をリトルエンディアンで送信)
+                            0x13, 0x50]) # 最新加速度データを取得 (0x5013 をリトルエンディアンで送信)
         command = command + calc_crc(command, len(command))
         ser.write(command)
         time.sleep(0.1)
@@ -55,6 +55,7 @@ try:
         z = s16(ret[23] | (ret[24] << 8)) * 0.1
         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"), f"x={x:.2f}, y={y:.2f}, z={z:.2f}")
         time.sleep(0.1)
+        i += 1
 
 except KeyboardInterrupt:
     # シリアルポートをクローズ
