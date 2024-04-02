@@ -47,6 +47,9 @@ ser.write(command)
 time.sleep(0.1)
 ret = ser.read(ser.inWaiting())
 
+# 10秒待機
+time.sleep(10)
+
 # LED を消灯
 command = bytearray([0x52, 0x42, # Header
                      0x0a, 0x00, # Length
