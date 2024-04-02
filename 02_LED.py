@@ -45,7 +45,7 @@ def led_off(_ser):
 
 
 # 現在時刻を表示
-print(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
 ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
@@ -57,8 +57,8 @@ try:
                         0x0a, 0x00, # Length
                         0x02, # Read 0x01, Write 0x02
                         0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
-                        0x01, 0x00, # 照度センサで色を変更 (0x0004 をリトルエンディアンで送信)
-                        0x00, 0xFF, 0x00]) # 色設定　RGB ここでは緑に設定
+                        0x04, 0x00, # 照度センサで色を変更 (0x0004 をリトルエンディアンで送信)
+                        0x00, 0x00, 0x00]) # 色設定　RGB ここでは緑に設定
     command = command + calc_crc(command, len(command))
     ser.write(command)
     time.sleep(0.1)
