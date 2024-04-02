@@ -30,7 +30,7 @@ def calc_crc(buf, length):
     return (bytearray([crcL, crcH]))
 
 # 現在時刻を表示
-print(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
 ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
