@@ -32,11 +32,11 @@ def calc_crc(buf, length):
 
 def serial_write(_ser, _payload):
     """
-    シリアルポートにコマンドを送信する関数
+    環境センサにコマンドを送信する関数
     _payload の前にヘッダと_payloadの長さを付加、後に CRC-16 を付加して送信
     """
     _command = b'\x52\x42' + pack('<H', len(_payload) + 2) + _payload
-    _command = _command + calc_crc(_command)
+    _command = _command + calc_crc(_command, len(_command))
     _ser.write(_command)
     _ser.flush()
     time.sleep(0.1)
@@ -67,7 +67,7 @@ def led_on_illuminance(_ser):
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 

@@ -7,10 +7,12 @@
 # 使い方: python 03_latest.py
 #
 
-import serial
+import os
+import sys
 import time
 from datetime import datetime
-import sys
+from struct import pack, unpack
+import serial
 
 def calc_crc(buf, length):
     """
@@ -32,6 +34,35 @@ def calc_crc(buf, length):
 def s16(value):
     return -(value & 0x8000) | (value & 0x7fff)
 
+def serial_write(_ser, _payload):
+    """
+    環境センサにコマンドを送信する関数
+    _payload の前にヘッダと_payloadの長さを付加、後に CRC-16 を付加して送信
+    """
+    _command = b'\x52\x42' + pack('<H', len(_payload) + 2) + _payload
+    _command = _command + calc_crc(_command, len(_command))
+    _ser.write(_command)
+    _ser.flush()
+    time.sleep(0.1)
+    return
+
+def serial_read(_ser, _payload):
+    """
+    環境センサにコマンドを送信し、レスポンスを取得する関数
+    _payload の前にヘッダと_payloadの長さを付加、後に CRC-16 を付加して送信
+    レスポンスはシリアルポートから読み込み、そのまま返す
+    """
+    if len(_payload) > 0:
+        serial_write(_ser, _payload)
+    else:
+        return b''
+    
+    ret = _ser.read(ser.inWaiting())
+    if ret[0:2] != b'\x52\x42':
+        raise print("Invalid Header")
+    if ret[4] != 0 and ret[4] != 1:
+        raise print("Error Response", ret)
+    return ret
 
 def print_latest_data(data):
     """
@@ -94,23 +125,19 @@ def print_latest_data(data):
     print("Seismic intensity flag:" + seismic_intensity_flag)
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
     i = 0
-    while ser.isOpen() and i < 100:
+    while ser.isOpen() and i < 10:
         # 最新センサデータを取得
-        command = bytearray([0x52, 0x42, # Header
-                            0x05, 0x00, # Length
-                            0x01, # Read 0x01, Write 0x02
-                            0x21, 0x50]) # 最新データを取得 (0x5021 をリトルエンディアンで送信)
-        command = command + calc_crc(command, len(command))
-        ser.write(command)
-        time.sleep(0.1)
-        ret = ser.read(ser.inWaiting())
+        payload = bytearray([0x01, # Read 0x01, Write 0x02
+                             0x21, 0x50]) # 最新データを取得 (0x5021 をリトルエンディアンで送信)
+        ret = serial_read(ser, payload)
         print_latest_data(ret)
         time.sleep(0.9)
+        i = i + 1
 
 except KeyboardInterrupt:
     # シリアルポートをクローズ

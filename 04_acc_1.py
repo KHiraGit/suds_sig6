@@ -7,10 +7,12 @@
 # 使い方: python 04_acc_1.py
 #
 
-import serial
+import os
+import sys
 import time
 from datetime import datetime
-import sys
+from struct import pack, unpack
+import serial
 
 def calc_crc(buf, length):
     """
@@ -33,7 +35,7 @@ def s16(value):
     return -(value & 0x8000) | (value & 0x7fff)
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
