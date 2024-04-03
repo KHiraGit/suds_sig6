@@ -7,10 +7,12 @@
 # 使い方: python 02_LED.py
 #
 
-import serial
+import os
+import sys
 import time
 from datetime import datetime
-import sys
+from struct import pack, unpack
+import serial
 
 def calc_crc(buf, length):
     """
@@ -28,21 +30,38 @@ def calc_crc(buf, length):
     crcL = crc & 0x00FF
     return (bytearray([crcL, crcH]))
 
+def serial_write(_ser, _payload):
+    """
+    シリアルポートにコマンドを送信する関数
+    _payload の前にヘッダと_payloadの長さを付加、後に CRC-16 を付加して送信
+    """
+    _command = b'\x52\x42' + pack('<H', len(_payload) + 2) + _payload
+    _command = _command + calc_crc(_command)
+    _ser.write(_command)
+    _ser.flush()
+    time.sleep(0.1)
+    return
+
 def led_off(_ser):
     """
     LEDを消灯する関数
     """
-    command = bytearray([0x52, 0x42, # Header
-                    0x0a, 0x00, # Length
-                    0x02, # Read 0x01, Write 0x02
-                    0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
-                    0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
-                    0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
-    command = command + calc_crc(command, len(command))
-    _ser.write(command)
-    time.sleep(0.1)
-    ret = ser.read(ser.inWaiting())
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
+                          0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
+                          0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
+                          0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
+    serial_write(_ser, _payload)
+    return
 
+def led_on_illuminance(_ser):
+    """
+    LEDを消灯する関数
+    """
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
+                          0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
+                          0x04, 0x00, # 照度センサで色を変更 (0x0004 をリトルエンディアンで送信)
+                          0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
+    serial_write(_ser, _payload)
 
 # 現在時刻を表示
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -52,26 +71,15 @@ ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
-    # LED を赤色で点灯
-    command = bytearray([0x52, 0x42, # Header
-                        0x0a, 0x00, # Length
-                        0x02, # Read 0x01, Write 0x02
-                        0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
-                        0x04, 0x00, # 照度センサで色を変更 (0x0004 をリトルエンディアンで送信)
-                        0x00, 0x00, 0x00]) # 色設定　RGB ここでは緑に設定
-    command = command + calc_crc(command, len(command))
-    ser.write(command)
-    time.sleep(0.1)
-    ret = ser.read(ser.inWaiting())
+    # LED を点灯 (照度センサの値によって色を変更)
+    led_on_illuminance(ser)
 
     # 60秒たったらLEDを消灯して終了
     time.sleep(60) 
     led_off(ser)
 
-    # シリアルポートをクローズ
+    # シリアルポートをクローズしてプログラムを終了
     ser.close()
-
-    # プログラムを終了
     sys.exit(0)
 
 except KeyboardInterrupt:

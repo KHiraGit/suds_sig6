@@ -7,10 +7,12 @@
 # 使い方: python 01_LED.py
 #
 
-import serial
+import os
+import sys
 import time
 from datetime import datetime
-import sys
+from struct import pack, unpack
+import serial
 
 def calc_crc(buf, length):
     """
@@ -29,6 +31,18 @@ def calc_crc(buf, length):
     crcL = crc & 0x00FF
     return (bytearray([crcL, crcH]))
 
+def serial_write(_ser, _payload):
+    """
+    シリアルポートにコマンドを送信する関数
+    _payload の前にヘッダと_payloadの長さを付加、後に CRC-16 を付加して送信
+    """
+    _command = b'\x52\x42' + pack('<H', len(_payload) + 2) + _payload
+    _command = _command + calc_crc(_command)
+    _ser.write(_command)
+    _ser.flush()
+    time.sleep(0.1)
+    return
+
 # 現在時刻を表示
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -36,31 +50,21 @@ print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # LED を赤色で点灯
-command = bytearray([0x52, 0x42, # Header
-                     0x0a, 0x00, # Length
-                     0x02, # Read 0x01, Write 0x02
+payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                      0x01, 0x00, # LED常時点灯 (0x0001 をリトルエンディアンで送信)
                      0xff, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
-command = command + calc_crc(command, len(command))
-ser.write(command)
-time.sleep(0.1)
-ret = ser.read(ser.inWaiting())
+serial_write(ser, payload)
 
 # 10秒待機
 time.sleep(10)
 
 # LED を消灯
-command = bytearray([0x52, 0x42, # Header
-                     0x0a, 0x00, # Length
-                     0x02, # Read 0x01, Write 0x02
+payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                      0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
                      0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
-command = command + calc_crc(command, len(command))
-ser.write(command)
-time.sleep(0.1)
-ret = ser.read(ser.inWaiting())
+serial_write(ser, payload)
 
 # シリアルポートをクローズ
 ser.close()
