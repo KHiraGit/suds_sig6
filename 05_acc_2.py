@@ -82,6 +82,33 @@ y = s16(ret[63] | (ret[64] << 8)) * 0.1
 z = s16(ret[65] | (ret[66] << 8)) * 0.1
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"), f"page={page:04x}, x={x:.2f}, y={y:.2f}, z={z:.2f}")
 
+# 最新の time counter を取得
+payload = bytearray([0x01, # Read 0x01, Write 0x02
+                     0x01, 0x52]) # Latest time counter (0x5201 をリトルエンディアンで送信)
+ret = serial_read(ser, payload)
+
+for i in range(len(ret)):
+    print('(', i, f'{ret[i]:02x}', ret[i], ') ', end=' ')
+print(ret[7:15], int.from_bytes(ret[7:8], 'little'))
+current_time_counter = int.from_bytes(ret[7:8], 'little')
+print()
+
+# フラッシュメモリに格納されている加速度データを取得
+payload = bytearray([0x01, # Read 0x01, Write 0x02
+                     0x3E, 0x50, # Acceleration memory data [Header] (0x503E をリトルエンディアンで送信)
+                     0x01, # Acceleration data type (0x00: Earthquake data 0x01: Vibration data)
+                     0x01]) # acceleration memory index (0x01: Latest data) (0x0001 をリトルエンディアンで送信)
+ret = serial_read(ser, payload)
+for i in range(len(ret)):
+    print('(', i, f'{ret[i]:02x}', ret[i], ') ', end=' ')
+print()
+print('total_pages', ret[8:10], int.from_bytes(ret[8:10], 'little'))
+total_pages  = int.from_bytes(ret[8:10], 'little')
+print('data_count', ret[10:14], int.from_bytes(ret[10:14], 'little'))
+data_count  = int.from_bytes(ret[10:14], 'little')
+print('data_timecounter', ret[14:22], int.from_bytes(ret[14:22], 'little'))
+data_timecounter  = int.from_bytes(ret[14:22], 'little')
+
 
 # シリアルポートをクローズ
 ser.close()
