@@ -55,7 +55,7 @@ def led_off(_ser):
 
 def led_on_illuminance(_ser):
     """
-    LEDを消灯する関数
+    LEDを点灯する関数
     """
     _payload = bytearray([0x02, # Read 0x01, Write 0x02
                           0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)

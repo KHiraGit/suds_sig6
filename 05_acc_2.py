@@ -46,7 +46,6 @@ def serial_write(_ser, _payload):
     time.sleep(0.1)
     return
 
-
 def serial_read(_ser, _payload):
     """
     環境センサにコマンドを送信し、レスポンスを取得する関数
@@ -60,81 +59,127 @@ def serial_read(_ser, _payload):
     
     ret = _ser.read(ser.inWaiting())
     if ret[0:2] != b'\x52\x42':
-        raise print("Invalid Header")
+        raise print("Invalid Header", ret)
     if ret[4] != 0 and ret[4] != 1:
-        raise print("Error Response", ret)
+        raise print("Error Response", hex(ret[4]))
     return ret
+
+def led_off(_ser):
+    """
+    LEDを消灯する関数
+    """
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
+                          0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
+                          0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
+                          0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
+    serial_write(_ser, _payload)
+    return
+
+def led_on(_ser):
+    """
+    LEDを点灯する関数
+    """
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
+                          0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
+                          0x01, 0x00, # LEDを点灯 (0x0001 をリトルエンディアンで送信)
+                          0xFF, 0xFF, 0xFF]) # 色設定　RGB ここでは赤に設定
+    serial_write(_ser, _payload)
+
+def logging_start(_ser):
+    # 加速度データの記録を開始
+    payload = bytearray([0x02, # Read 0x01, Write 0x02
+                        0x18, 0x51, # Acceleration logger control (0x5118 をリトルエンディアンで送信)
+                        0x01, # 0x00: Log stop 0x01: Log start
+                        0x00, # Range of detection (固定値)
+                        0x03, # ODR setting (0x00: 1 Hz 0x02: 25 Hz 0x03: 100 Hz 0x04: 200 Hz 0x05: 400 Hz)
+                        0x01, 0x00, # Start page (range 0x0001 to 0x2800 (0x0001 をリトルエンディアンで送信))
+                        0x10, 0x00]) # End page (0x0010 をリトルエンディアンで送信)
+    ret = serial_write(_ser, payload)
+    time.sleep(0.1)
+    ret = _ser.read(_ser.inWaiting())
+    print('### Acceleration data logging start ###', datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+    return
+
+def logging_stop(_ser):
+    # 加速度データの記録を終了
+    payload = bytearray([0x02, # Read 0x01, Write 0x02
+                        0x18, 0x51, # Acceleration logger control (0x5118 をリトルエンディアンで送信)
+                        0x00, # 0x00: Log stop 0x01: Log start
+                        0x00, # Range of detection (固定値)
+                        0x03, # ODR setting (0x00: 1 Hz 0x02: 25 Hz 0x03: 100 Hz 0x04: 200 Hz 0x05: 400 Hz)
+                        0x01, 0x00, # Start page (range 0x0001 to 0x2800 (0x0001 をリトルエンディアンで送信))
+                        0x10, 0x00]) # End page (0x0010 をリトルエンディアンで送信)
+    ret = serial_write(_ser, payload)
+    time.sleep(0.1)
+    ret = _ser.read(_ser.inWaiting())
+    print('### Acceleration data logging stop ###', datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+    return
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
 ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
-# フラッシュメモリに格納されている加速度データを取得
-payload = bytearray([0x01, # Read 0x01, Write 0x02
-                     0x3E, 0x50, # Acceleration memory data [Header] (0x503E をリトルエンディアンで送信)
-                     0x01, # Acceleration data type (0x00: Earthquake data 0x01: Vibration data)
-                     0x01]) # acceleration memory index (0x01: Latest data) (0x0001 をリトルエンディアンで送信)
-ret = serial_read(ser, payload)
+led_on(ser)
+# payload = bytearray([0x01, # Read 0x01, Write 0x02
+#                      0x17, 0x51, # Mode change (0x5117 をリトルエンディアンで送信)
+#                      0x01]) # 0x00: Normal mode (default) 0x01: Acceleration logger mode
+# ret = serial_read(ser, payload) # モード切替時にフラッシュメモリが消去されるため、約2分かかる
+command = bytearray([0x52, 0x42, # Header
+                    0x06, 0x00, # Length
+                    0x01, # Read 0x01, Write 0x02
+                    0x17, 0x51,
+                    0x01])
+command = command + calc_crc(command, len(command))
+ser.write(command)
+time.sleep(0.1)
+ret = ser.read(ser.inWaiting())
+led_off(ser)
 
-# 取得したデータを加速度(gal)に変換して表示
-page = s16(ret[7] | (ret[8] << 8))
-x = s16(ret[61] | (ret[62] << 8)) * 0.1 # 加速度の単位は gal
-y = s16(ret[63] | (ret[64] << 8)) * 0.1
-z = s16(ret[65] | (ret[66] << 8)) * 0.1
-print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"), f"page={page:04x}, x={x:.2f}, y={y:.2f}, z={z:.2f}")
+logging_start(ser)
 
-# 最新の time counter を取得
-payload = bytearray([0x01, # Read 0x01, Write 0x02
-                     0x01, 0x52]) # Latest time counter (0x5201 をリトルエンディアンで送信)
-ret = serial_read(ser, payload)
+# try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
+try: 
+    i = 0
+    while i < 10:
+        time.sleep(1)
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
 
-for i in range(len(ret)):
-    print('(', i, f'{ret[i]:02x}', ret[i], ') ', end=' ')
-print(ret[7:15], int.from_bytes(ret[7:8], 'little'))
-current_time_counter = int.from_bytes(ret[7:8], 'little')
-print()
+        command = bytearray([0x52, 0x42, # Header
+                            0x05, 0x00, # Length
+                            0x01, # Read 0x01, Write 0x02
+                            0x19, 0x51]) # Acceleration logger status (0x5119 をリトルエンディアンで送信)
+        command = command + calc_crc(command, len(command))
+        ser.write(command)
+        time.sleep(0.1)
+        ret = ser.read(ser.inWaiting())
+        for j in range(len(ret)):
+            print(j, f'{ret[j]:02x}', end=' ')
+        print()
 
-# フラッシュメモリに格納されている加速度データを取得
-payload = bytearray([0x01, # Read 0x01, Write 0x02
-                     0x3E, 0x50, # Acceleration memory data [Header] (0x503E をリトルエンディアンで送信)
-                     0x01, # Acceleration data type (0x00: Earthquake data 0x01: Vibration data)
-                     0x01]) # acceleration memory index (0x01: Latest data) (0x0001 をリトルエンディアンで送信)
-ret = serial_read(ser, payload)
-for i in range(len(ret)):
-    print('(', i, f'{ret[i]:02x}', ret[i], ') ', end=' ')
-print()
-print('total_pages', ret[8:10], int.from_bytes(ret[8:10], 'little'))
-total_pages  = int.from_bytes(ret[8:10], 'little')
-print('data_count', ret[10:14], int.from_bytes(ret[10:14], 'little'))
-data_count  = int.from_bytes(ret[10:14], 'little')
-print('data_timecounter', ret[14:22], int.from_bytes(ret[14:22], 'little'))
-data_timecounter  = int.from_bytes(ret[14:22], 'little')
+        # # 最新データを取得
+        # payload = bytearray([0x01, # Read 0x01, Write 0x02
+        #                      0x21, 0x50]) # Latest data long (0x5021 をリトルエンディアンで送信)
+        # ret = serial_read(ser, payload)
+        # print(ret)
 
+        # 最新の time counter を取得
+        # payload = bytearray([0x01, # Read 0x01, Write 0x02
+        #                      0x19, 0x51]) # Acceleration logger status (0x5119 をリトルエンディアンで送信)
+        # ret = serial_read(ser, payload)
+        # print(ret)
 
-# シリアルポートをクローズ
-ser.close()
+        # 最新の time counter を取得
+        # payload = bytearray([0x01, # Read 0x01, Write 0x02
+        #                      0x01, 0x52]) # Latest time counter (0x5201 をリトルエンディアンで送信)
+        # ret = serial_read(ser, payload)
+        # print(ret)
 
-# # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
-# try: 
-#     i = 0
-#     while ser.isOpen() and i < 100:
-#         # 最新加速度データを取得
-#         command = bytearray([0x52, 0x42, # Header
-#                             0x05, 0x00, # Length
-#                             0x01, # Read 0x01, Write 0x02
-#                             0x13, 0x50]) # 最新加速度データを取得 (0x5013 をリトルエンディアンで送信)
-#         command = command + calc_crc(command, len(command))
-#         ser.write(command)
-#         time.sleep(0.1)
-#         ret = ser.read(ser.inWaiting())
+        i = i + 1
+    logging_stop(ser)
+    # シリアルポートをクローズ
+    ser.close()
 
-#         # 取得したデータを加速度(gal)に変換して表示
-#         x = s16(ret[19] | (ret[20] << 8)) * 0.1 # 加速度の単位は gal
-#         y = s16(ret[21] | (ret[22] << 8)) * 0.1
-#         z = s16(ret[23] | (ret[24] << 8)) * 0.1
-#         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"), f"x={x:.2f}, y={y:.2f}, z={z:.2f}")
-#         time.sleep(0.1)
-#         i += 1
+except KeyboardInterrupt:
+    logging_stop(ser)
+    # シリアルポートをクローズ
+    ser.close()
 
-# except KeyboardInterrupt:
-#     # シリアルポートをクローズ
-#     ser.close()
