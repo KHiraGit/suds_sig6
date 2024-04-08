@@ -43,7 +43,6 @@ def serial_write(_ser, _payload):
     _command = _command + calc_crc(_command, len(_command))
     _ser.write(_command)
     _ser.flush()
-    time.sleep(0.1)
     return
 
 def serial_read(_ser, _payload):
@@ -57,7 +56,12 @@ def serial_read(_ser, _payload):
     else:
         return b''
     
-    ret = _ser.read(ser.inWaiting())
+    _ser_len = _ser.inWaiting()
+    while _ser_len == 0:
+        time.sleep(0.1)
+        _ser_len = _ser.inWaiting()
+    ret = ser.read(_ser_len)
+
     if ret[0:2] != b'\x52\x42':
         raise print("Invalid Header")
     if ret[4] != 0 and ret[4] != 1:
@@ -69,7 +73,7 @@ def print_latest_data(data):
     print measured latest value.
     https://github.com/omron-devhub/2jciebu-usb-raspberrypi の sample_2jciebu.py からコピー
     """
-    time_measured = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    time_measured = datetime.now().strftime("%Y/%m/%d %H:%M:%S.%f")
     temperature = str( s16(int(hex(data[9]) + '{:02x}'.format(data[8], 'x'), 16)) / 100)
     relative_humidity = str(int(hex(data[11]) + '{:02x}'.format(data[10], 'x'), 16) / 100)
     ambient_light = str(int(hex(data[13]) + '{:02x}'.format(data[12], 'x'), 16))
@@ -136,7 +140,7 @@ try:
                              0x21, 0x50]) # 最新データを取得 (0x5021 をリトルエンディアンで送信)
         ret = serial_read(ser, payload)
         print_latest_data(ret)
-        time.sleep(0.9)
+        time.sleep(1)
         i = i + 1
 
 except KeyboardInterrupt:

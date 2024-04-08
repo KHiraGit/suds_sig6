@@ -48,14 +48,17 @@ try:
                             0x13, 0x50]) # 最新加速度データを取得 (0x5013 をリトルエンディアンで送信)
         command = command + calc_crc(command, len(command))
         ser.write(command)
-        time.sleep(0.1)
-        ret = ser.read(ser.inWaiting())
+        _ser_len = ser.inWaiting()
+        while _ser_len == 0:
+            time.sleep(0.1)
+            _ser_len = ser.inWaiting()
+        ret = ser.read(_ser_len)
 
         # 取得したデータを加速度(gal)に変換して表示
         x = s16(ret[19] | (ret[20] << 8)) * 0.1 # 加速度の単位は gal
         y = s16(ret[21] | (ret[22] << 8)) * 0.1
         z = s16(ret[23] | (ret[24] << 8)) * 0.1
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"), f"x={x:.2f}, y={y:.2f}, z={z:.2f}")
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), f"x={x:.2f}, y={y:.2f}, z={z:.2f}")
         time.sleep(0.1)
         i += 1
 

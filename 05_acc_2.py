@@ -60,7 +60,10 @@ def serial_read(_ser, _payload):
     ret = _ser.read(ser.inWaiting())
     if ret[0:2] != b'\x52\x42':
         raise print("Invalid Header", ret)
-    if ret[4] != 0 and ret[4] != 1:
+    if ret[4] != 1 and ret[4] != 2:
+        for i in range(len(ret)):
+            print(f'({i}) {ret[i]:02x}', end=' ')
+        print()
         raise print("Error Response", hex(ret[4]))
     return ret
 
@@ -68,71 +71,133 @@ def led_off(_ser):
     """
     LEDを消灯する関数
     """
+    print('LED OFF')
     _payload = bytearray([0x02, # Read 0x01, Write 0x02
                           0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                           0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
                           0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
-    serial_write(_ser, _payload)
+    ret = serial_read(_ser, _payload)
+    dump_data(ret)
     return
 
 def led_on(_ser):
     """
     LEDを点灯する関数
     """
+    print('LED ON')
     _payload = bytearray([0x02, # Read 0x01, Write 0x02
                           0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                           0x01, 0x00, # LEDを点灯 (0x0001 をリトルエンディアンで送信)
-                          0xFF, 0xFF, 0xFF]) # 色設定　RGB ここでは赤に設定
-    serial_write(_ser, _payload)
+                          0xFF, 0xFF, 0xFF]) # 色設定　RGB ここでは白に設定
+    ret = serial_read(_ser, _payload)
+    dump_data(ret)
+    return
 
 def logging_start(_ser):
-    # 加速度データの記録を開始
-    payload = bytearray([0x02, # Read 0x01, Write 0x02
+    """
+    加速度データの記録を開始
+    """
+    print('### Change mode to Acceleration data logging...')
+    _payload = bytearray([0x01, # Read 0x01, Write 0x02
+                        0x17, 0x51]) # 4 Mode change (Address: 0x5117 をリトルエンディアンで送信)
+    ret = serial_read(_ser, _payload)
+    dump_data(ret)
+    # payload = bytearray([0x02, # Read 0x01, Write 0x02
+    #                     0x17, 0x51, # 4 Mode change (Address: 0x5117 をリトルエンディアンで送信)
+    #                     0x01]) # 0x00: Normal mode (default) 0x01: Acceleration logger mode
+    # ret = serial_read(_ser, payload)
+    # time.sleep(150)
+    print('### Acceleration data logging start ###', end=' ')
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
                         0x18, 0x51, # Acceleration logger control (0x5118 をリトルエンディアンで送信)
                         0x01, # 0x00: Log stop 0x01: Log start
                         0x00, # Range of detection (固定値)
                         0x03, # ODR setting (0x00: 1 Hz 0x02: 25 Hz 0x03: 100 Hz 0x04: 200 Hz 0x05: 400 Hz)
                         0x01, 0x00, # Start page (range 0x0001 to 0x2800 (0x0001 をリトルエンディアンで送信))
-                        0x10, 0x00]) # End page (0x0010 をリトルエンディアンで送信)
-    ret = serial_write(_ser, payload)
-    time.sleep(0.1)
-    ret = _ser.read(_ser.inWaiting())
-    print('### Acceleration data logging start ###', datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+                        0x00, 0x28]) # End page (0x2800 をリトルエンディアンで送信)
+    ret = serial_read(_ser, _payload)
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+    dump_data(ret)
     return
 
 def logging_stop(_ser):
-    # 加速度データの記録を終了
-    payload = bytearray([0x02, # Read 0x01, Write 0x02
+    """
+    加速度データの記録を終了
+    """
+    print('### Change mode to Acceleration data logging...')
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
+                        0x17, 0x51, # 4 Mode change (Address: 0x5117 をリトルエンディアンで送信)
+                        0x00]) # 0x00: Normal mode (default) 0x01: Acceleration logger mode
+    ret = serial_read(_ser, _payload)
+    print('### Acceleration data logging stop ###', end=' ')
+    _payload = bytearray([0x02, # Read 0x01, Write 0x02
                         0x18, 0x51, # Acceleration logger control (0x5118 をリトルエンディアンで送信)
                         0x00, # 0x00: Log stop 0x01: Log start
                         0x00, # Range of detection (固定値)
                         0x03, # ODR setting (0x00: 1 Hz 0x02: 25 Hz 0x03: 100 Hz 0x04: 200 Hz 0x05: 400 Hz)
                         0x01, 0x00, # Start page (range 0x0001 to 0x2800 (0x0001 をリトルエンディアンで送信))
-                        0x10, 0x00]) # End page (0x0010 をリトルエンディアンで送信)
-    ret = serial_write(_ser, payload)
-    time.sleep(0.1)
-    ret = _ser.read(_ser.inWaiting())
-    print('### Acceleration data logging stop ###', datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+                        0x00, 0x28]) # End page (0x2800 をリトルエンディアンで送信)
+    ret = serial_read(_ser, _payload)
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
+    dump_data(ret)
+    return
+
+def check_logger_status(_ser):
+    """
+    ロガーの状態を確認する関数
+    """
+    print('### check_logger_status ###')
+    _payload = bytearray([0x01, # Read 0x01, Write 0x02
+                         0x19, 0x51]) # Acceleration logger status (Address: 0x5119 をリトルエンディアンで送信)
+    ret = serial_read(_ser, _payload)
+    dump_data(ret)
+    return
+
+def dump_data(_ret):
+    for i in range(len(_ret)):
+        print(f'({i}) {_ret[i]:02x}', end=' ')
+    print()
     return
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
 ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser.reset_input_buffer()
+ser.reset_output_buffer()
 
 led_on(ser)
-# payload = bytearray([0x01, # Read 0x01, Write 0x02
-#                      0x17, 0x51, # Mode change (0x5117 をリトルエンディアンで送信)
-#                      0x01]) # 0x00: Normal mode (default) 0x01: Acceleration logger mode
-# ret = serial_read(ser, payload) # モード切替時にフラッシュメモリが消去されるため、約2分かかる
-command = bytearray([0x52, 0x42, # Header
-                    0x06, 0x00, # Length
-                    0x01, # Read 0x01, Write 0x02
-                    0x17, 0x51,
-                    0x01])
-command = command + calc_crc(command, len(command))
-ser.write(command)
-time.sleep(0.1)
-ret = ser.read(ser.inWaiting())
+
+payload = bytearray([0x01, # Read 0x01, Write 0x02
+                     0x02, 0x52, # Time setting (Address: 0x5202 をリトルエンディアンで送信)
+                     ])
+ret = serial_read(ser, payload)
+current_timecounter  = int.from_bytes(ret[7:15], 'little')
+print('current_timecounter (r)', current_timecounter)
+if current_timecounter == 0:
+    payload = bytearray([0x02, # Read 0x01, Write 0x02
+                        0x02, 0x52 # Time setting (Address: 0x5202 をリトルエンディアンで送信)
+                        ]) + pack('<Q', 1) # UInt64 で 1 送信
+    ret = serial_read(ser, payload)
+    current_timecounter  = int.from_bytes(ret[7:15], 'little')
+    print('current_timecounter (w)', current_timecounter)
+
+payload = bytearray([0x01, # Read 0x01, Write 0x02
+                     0x03, 0x52, # Memory storage interval (Address: 0x5203 をリトルエンディアンで送信)
+                     ])
+ret = serial_read(ser, payload)
+storage_interval  = int.from_bytes(ret[7:9], 'little')
+print('storage_interval (r)', storage_interval)
+if storage_interval < 3600:
+    payload = bytearray([0x02, # Read 0x01, Write 0x02
+                        0x03, 0x52 # Memory storage interval (Address: 0x5203 をリトルエンディアンで送信)
+                        ]) + pack('<H', 300) # UInt16 で 3600 送信
+    ret = serial_read(ser, payload)
+    storage_interval  = int.from_bytes(ret[7:9], 'little')
+    print('storage_interval (w)', storage_interval)
+# time.sleep(150) # This process takes about 2min.
+
 led_off(ser)
+
+check_logger_status(ser)
 
 logging_start(ser)
 
@@ -143,34 +208,34 @@ try:
         time.sleep(1)
         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %f"))
 
-        command = bytearray([0x52, 0x42, # Header
-                            0x05, 0x00, # Length
-                            0x01, # Read 0x01, Write 0x02
-                            0x19, 0x51]) # Acceleration logger status (0x5119 をリトルエンディアンで送信)
-        command = command + calc_crc(command, len(command))
-        ser.write(command)
-        time.sleep(0.1)
-        ret = ser.read(ser.inWaiting())
-        for j in range(len(ret)):
-            print(j, f'{ret[j]:02x}', end=' ')
-        print()
+        check_logger_status(ser)
+
+        # command = bytearray([0x52, 0x42, # Header
+        #                     0x05, 0x00, # Length
+        #                     0x01, # Read 0x01, Write 0x02
+        #                     0x19, 0x51]) # Acceleration logger status (0x5119 をリトルエンディアンで送信)
+        # command = command + calc_crc(command, len(command))
+        # ser.write(command)
+        # time.sleep(0.1)
+        # ret = ser.read(ser.inWaiting())
+        # dump_data(ret)
 
         # # 最新データを取得
         # payload = bytearray([0x01, # Read 0x01, Write 0x02
         #                      0x21, 0x50]) # Latest data long (0x5021 をリトルエンディアンで送信)
-        # ret = serial_read(ser, payload)
+        # ret = serial_read_2(ser, payload)
         # print(ret)
 
         # 最新の time counter を取得
         # payload = bytearray([0x01, # Read 0x01, Write 0x02
         #                      0x19, 0x51]) # Acceleration logger status (0x5119 をリトルエンディアンで送信)
-        # ret = serial_read(ser, payload)
+        # ret = serial_read_2(ser, payload)
         # print(ret)
 
         # 最新の time counter を取得
         # payload = bytearray([0x01, # Read 0x01, Write 0x02
         #                      0x01, 0x52]) # Latest time counter (0x5201 をリトルエンディアンで送信)
-        # ret = serial_read(ser, payload)
+        # ret = serial_read_2(ser, payload)
         # print(ret)
 
         i = i + 1

@@ -40,7 +40,6 @@ def serial_write(_ser, _payload):
     _command = _command + calc_crc(_command, len(_command))
     _ser.write(_command)
     _ser.flush()
-    time.sleep(0.1)
     return
 
 # 現在時刻を表示
