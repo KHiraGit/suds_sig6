@@ -56,11 +56,16 @@ def serial_read(_ser, _payload):
     else:
         return b''
     
-    _ser_len = _ser.inWaiting()
-    while _ser_len == 0:
-        time.sleep(0.1)
+    ret = b''
+    command_head_len = 4
+    while True:
         _ser_len = _ser.inWaiting()
-    ret = ser.read(_ser_len)
+        if _ser_len > 0:    
+            ret += ser.read(_ser_len)
+            if len(ret) >= (ret[2] | (ret[3] << 8)) + command_head_len:
+                break
+        else:
+            time.sleep(0.1)
 
     if ret[0:2] != b'\x52\x42':
         raise print("Invalid Header")

@@ -55,8 +55,9 @@ payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0xff, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
 serial_write(ser, payload)
 
+
 # 10秒待機
-time.sleep(10)
+time.sleep(1)
 
 # LED を消灯
 payload = bytearray([0x02, # Read 0x01, Write 0x02
@@ -64,6 +65,16 @@ payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
                      0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
 serial_write(ser, payload)
+
+time.sleep(1)
+
+_ser_len = ser.inWaiting()
+ret = ser.read(_ser_len)
+print(f'len={len(ret)} len(payload)={ret[2] | ret[3] << 8}')
+for i in range(len(ret)):
+    print(f'({i}) {ret[i]:02x}', end=' ')
+    if i % 16 == 15:
+        print()
 
 # シリアルポートをクローズ
 ser.close()
