@@ -66,7 +66,7 @@ def led_on_illuminance(_ser):
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 

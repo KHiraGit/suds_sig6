@@ -46,7 +46,7 @@ def serial_write(_ser, _payload):
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+ser = serial.Serial("COM3", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
 
 # LED を赤色で点灯
 payload = bytearray([0x02, # Read 0x01, Write 0x02
