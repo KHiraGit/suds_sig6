@@ -14,6 +14,10 @@ from datetime import datetime
 from struct import pack, unpack
 import serial
 
+# シリアルポートの設定
+SERIAL_PORT = "COM3"
+SERIAL_BAUDRATE = 115200
+
 def calc_crc(buf, length):
     """
     CRC-16 を計算する関数
@@ -67,8 +71,8 @@ def serial_read(_ser, _payload):
         raise print("Error Response", hex(ret[4]))
     return ret
 
-# シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+# シリアルポートをオープン
+ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
 ser.reset_input_buffer()
 ser.reset_output_buffer()
 

@@ -18,6 +18,18 @@ import influxdb_client, time
 from influxdb_client import Point
 from influxdb_client.client.write_api import WriteOptions
 
+# シリアルポートの設定
+SERIAL_PORT = "COM3"
+SERIAL_BAUDRATE = 115200
+
+# InfluxDB の設定
+host = "192.168.11.81"
+port = 8086
+database ="sensor_2jcie_bu01_kh1"
+username = "sensor"
+password = "sensor_pw"
+
+
 
 def calc_crc(buf, length):
     """
@@ -115,17 +127,10 @@ def get_current_data(_ser):
     else:
         return None
 
-# シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+# シリアルポートをオープン
+ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
 
-# InfluxDB に接続
-# url = "http://localhost:8086"
-host = "192.168.11.81"
-port = 8086
-database ="sensor_2jcie_bu01_kh1"
-username = "sensor"
-password = "sensor_pw"
-
+# InfluxDB の設定
 class Database:
     def __init__(self, _host, _port, _database, _username, _password):
         self.influx = influxdb.InfluxDBClient(host=_host, port=_port, database=_database, username=_username, password=_password)

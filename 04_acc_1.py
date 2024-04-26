@@ -14,6 +14,10 @@ from datetime import datetime
 from struct import pack, unpack
 import serial
 
+# シリアルポートの設定
+SERIAL_PORT = "COM3"
+SERIAL_BAUDRATE = 115200
+
 def calc_crc(buf, length):
     """
     CRC-16 を計算する関数
@@ -34,8 +38,8 @@ def calc_crc(buf, length):
 def s16(value):
     return -(value & 0x8000) | (value & 0x7fff)
 
-# シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
-ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
+# シリアルポートをオープン
+ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
