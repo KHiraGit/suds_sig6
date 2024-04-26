@@ -64,13 +64,18 @@ def serial_read(_ser, _payload, timeout=0.0):
 
     ret = b''
     command_head_len = 4
+    i = 0
     while True:
         _ser_len = _ser.inWaiting()
-        if _ser_len > 3:    
+        if _ser_len > 0:
             ret += _ser.read(_ser_len)
-            if len(ret) >= (ret[2] | (ret[3] << 8)) + command_head_len:
+            if _ser_len > 3 and len(ret) >= (ret[2] | (ret[3] << 8)) + command_head_len:
                 break
         else:
+            i = i + 1
+            if i >= 10:
+                print('serial port timeout')
+                return b''
             time.sleep(0.1)
 
     if ret[0:2] != b'\x52\x42':
@@ -101,12 +106,14 @@ def get_current_data(_ser):
                         0x21, 0x50, # Latest data Long (Address: 0x5021 をリトルエンディアンで送信)
                         ])
     ret = serial_read(_ser, payload)
-    values = unpack('<hHHLHHHHhBHHH', ret[8:35])
-    units = [0.01, 0.01, 1, 0.001, 0.01, 1, 1, 0.01, 0.01, 1, 0.1, 0.1, 0.001]
-    retval = dict([ [k, v * u] for k, v, u in zip(fields, values, units)])
-    retval["time_measured"] = datetime.now()
-    return retval
-
+    if len(ret) > 0:
+        values = unpack('<hHHLHHHHhBHHH', ret[8:35])
+        units = [0.01, 0.01, 1, 0.001, 0.01, 1, 1, 0.01, 0.01, 1, 0.1, 0.1, 0.001]
+        retval = dict([ [k, v * u] for k, v, u in zip(fields, values, units)])
+        retval["time_measured"] = datetime.now()
+        return retval
+    else:
+        return None
 
 # シリアルポートをオープン (インストール状況・実行環境に応じて COM3 を変更)
 ser = serial.Serial("COM4", 115200, serial.EIGHTBITS, serial.PARITY_NONE)
@@ -132,14 +139,16 @@ class Database:
         json_body = [{
             'measurement': 'sensor',
             'tags': {'macaddr': ''},
-            'time': data['time_measured'],
+            # 'time': data['time_measured'],
+            'time': datetime.utcnow(),
             'fields': _field_data
         }]
         self.influx.write_points(json_body)
 
     def close(self):
-        self.write_api.close()
-        self.client.close()
+        # self.write_api.close()
+        # self.client.close()
+        self.influx.close()
 
 influxDB = Database(host, port, database, username, password)
 
@@ -150,8 +159,10 @@ try:
     while ser.isOpen():
         # 最新センサデータを取得
         ret = get_current_data(ser)
-        print(ret)
-        influxDB.write(ret)
+        if ret is not None:
+            if i % 10 == 0:
+                print(ret)
+            influxDB.write(ret)
         # time.sleep(1)
         time.sleep(10) # 10秒ごとにデータを取得して InfluxDB に格納
         i = i + 1
