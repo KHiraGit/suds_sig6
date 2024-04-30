@@ -19,7 +19,7 @@ from influxdb_client import Point
 from influxdb_client.client.write_api import WriteOptions
 
 # シリアルポートの設定
-SERIAL_PORT = "COM3"
+SERIAL_PORT = "COM5"
 SERIAL_BAUDRATE = 115200
 
 # InfluxDB の設定
@@ -29,7 +29,6 @@ port = 8086
 database ="sensor_2jcie_bu01_kh1"
 username = "sensor"
 password = "sensor_pw"
-
 
 
 def calc_crc(buf, length):
@@ -158,20 +157,19 @@ def setup_sensor(_ser):
         storage_interval  = int.from_bytes(ret[7:9], 'little')
         print('storage_interval (w)', storage_interval)
 
-def dump_acc_data(_acc_data, _page, _time):
+def read_acc_data_pages(_acc_data, _page, _time):
     # print(len(_acc_data))
+    retval = []
     for i in range(0, len(_acc_data)-1, 6):
         x = s16(_acc_data[i+1] << 8 | _acc_data[i]) * 0.1
         y = s16(_acc_data[i+3] << 8 | _acc_data[i+2]) * 0.1
         z = s16(_acc_data[i+5] << 8 | _acc_data[i+4]) * 0.1
-        _timestamp = _time+(_page*32+i/6)*0.01
-        print(f'{_page} {i/6} x={x:.2f} y={y:.2f} z={z:.2f}', _timestamp, datetime.fromtimestamp(_timestamp), _timestamp)
-    return
+        _timestamp = _time + (_page*32+i/6) * 0.01
+        # print(f'{_page} {i/6} x={x:.2f} y={y:.2f} z={z:.2f}', _timestamp, datetime.fromtimestamp(_timestamp), _timestamp)
+        retval.append({"time_measured": _timestamp, 'acc_x': x, 'acc_y': y, 'acc_z': z})
+    return retval
 
-# シリアルポートをオープン
-ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
-
-# InfluxDB の設定
+# InfluxDB にデータを格納するためのクラス
 class Database:
     def __init__(self, _host, _port, _database, _username, _password):
         if INFLUXDB_ACTIVE:
@@ -186,50 +184,67 @@ class Database:
         json_body = [{
             'measurement': 'sensor',
             'tags': {'macaddr': ''},
-            # 'time': data['time_measured'],
             'time': datetime.utcnow(),
             'fields': _field_data
         }]
         if INFLUXDB_ACTIVE:
             self.influx.write_points(json_body)
         else:
-            print(json_body)
+            print('(to_InfluxDB)', json_body)
 
     def close(self):
         if INFLUXDB_ACTIVE:
             self.influx.close()
 
+# InfluxDB のデータベースをオープン
 influxDB = Database(host, port, database, username, password)
+
+# シリアルポートをオープン
+ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
+
+# センサの初期設定(加速度データの記録を開始するために timecounter をリセット)
+setup_sensor(ser)
+
+# センサの初期設定完了後、一度、センサからデータを取得して表示
+ret = None
+while ret is None:
+    ret = get_current_data(ser)
+    time.sleep(1)
+print('# start sensing data', datetime.utcnow(), ret)
 
 # 地震・振動によって記録された加速度データを確認し、InfluxDBに格納するためのフラグ
 earthquake_flag = False
 vibration_flag = False
 vibration_start_time = 0
 vibration_end_time = 0
-vibration_start_datetime = datetime.utcnow()
+vibration_start_datetime = datetime.utcnow().timestamp()
 
-# try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
+# try-except文を使って、Ctrl+C でプログラムを終了することができるように設定
 try: 
     i = 0
     # while ser.isOpen() and i < 10:
     while ser.isOpen():
         # 最新センサデータを取得
         ret = get_current_data(ser)
+        if ret is None:
+            continue
 
         # カウンター(i)を確認し、約10秒ごとにデータを InfluxDB に格納
-        if ret is not None:
-            if i % 10 == 0:
-                influxDB.write(ret)
-            if i % 100 == 0: # 約100秒ごとにデバッグのため、標準出力にデータを出力
-                print(ret)
+        if i % 10 == 0:
+            influxDB.write(ret)
+        if i % 100 == 0: # 約100秒ごとにデバッグのため、標準出力にデータを出力
+            print(f'({i})', ret)
 
         if vibration_flag == False and ret["vibration_information"] != 0:
             vibration_flag = True
             vibration_start_time = ret["time_measured"]
-            vibration_start_datetime = datetime.utcnow()
+            vibration_start_timestamp = datetime.utcnow().timestamp()
             if ret["vibration_information"] == 2:
                 print("### Earthquake detected", f'({ret["time_measured"]})')
                 earthquake_flag = True
+            else:
+                print("### vibration detected", f'({ret["time_measured"]})')
+
 
         if vibration_flag == True and ret["vibration_information"] == 0:
             # Read the current timecounter
@@ -254,9 +269,8 @@ try:
                     # Calculate time of vibration end.
                     vibration_end_time = vibration_start_datetime + (current_timecounter - data_timecounter)
                     print('current_timecounter', current_timecounter, 'data_timecounter', data_timecounter, 'diff', (current_timecounter - data_timecounter))
-                    print(f'vibration_start_time: {vibration_start_time} ({vibration_start_time.strftime("%Y-%m-%d %H:%M:%S.%f")})')
+                    print(f'vibration_start_time: {vibration_start_time}') # ({datetime.fromtimestamp(vibration_start_time)})')
                     print(f'vibration_end_time: {vibration_end_time} ({datetime.fromtimestamp(vibration_end_time)})')
-                    # print(f'vibration_end_time: {vibration_end_time} ({vibration_end_time.strftime("%Y-%m-%d %H:%M:%S.%f")})')
 
                     _start_page = 0x0001
                     _end_page = ret[7] | ret[8]<<8            
@@ -268,13 +282,12 @@ try:
                                         ret[7], ret[8]]) # Request page (End page)
                                         # ])+ pack('<H', _end_page - 1) # Request page (End page)
                     ret = serial_read(ser, _payload, timeout=1.0)
+                    acc_data = []
                     for i in range(_end_page):
-                        # print(f'### page 0x{i+1:04x}')
-                        # dump_data(ret[i*237:(i+1)*237])
-                        dump_acc_data(ret[i*237+43:(i+1)*237-2], i, vibration_end_time)
+                        acc_data = acc_data + read_acc_data_pages(ret[i*237+43:(i+1)*237-2], i, vibration_start_timestamp)
+                    for _data in acc_data:
+                        influxDB.write(_data)
 
-                    # ret = serial_read_acc(ser, _payload, _end_page, vibration_end_time)
-                    # print(ret)
                 earthquake_flag = False
 
             else:
@@ -285,8 +298,6 @@ try:
                                     0x01, # Request acceleration memory index (Range: 0x01 to 0x0A (1 to 10) *0x01: Latest data <---> 0x0A: Last data)
                                     ])
                 ret = serial_read(ser, payload)
-                # dump_data(ret)
-                # The timecounter of earthquake end.
                 data_timecounter = int.from_bytes(ret[13:21], 'little')
                 print(f'Vibration end timecounter: {data_timecounter}')
 
@@ -294,10 +305,9 @@ try:
                     # Calculate time of vibration end.
                     vibration_end_time = vibration_start_datetime + (current_timecounter - data_timecounter)
                     print('current_timecounter', current_timecounter, 'data_timecounter', data_timecounter, 'diff', (current_timecounter - data_timecounter))
-                    print(f'vibration_start_time: {vibration_start_time} ({vibration_start_time.strftime("%Y-%m-%d %H:%M:%S.%f")}) type({type(vibration_start_time)})')
+                    print(f'vibration_start_time: {vibration_start_time}') # ({datetime.fromtimestamp(vibration_start_time)})')
                     print(f'vibration_end_time: {vibration_end_time} ({datetime.fromtimestamp(vibration_end_time)})')
                     print()
-                    # print(f'vibration_end_time: {vibration_end_time} ({vibration_end_time.strftime("%Y-%m-%d %H:%M:%S.%f")})')
 
                     _start_page = 0x0001
                     _end_page = ret[7] | ret[8]<<8            
@@ -309,13 +319,11 @@ try:
                                         ret[7], ret[8]]) # Request page (End page)
                                         # ])+ pack('<H', _end_page - 1) # Request page (End page)
                     ret = serial_read(ser, _payload, timeout=1.0)
+                    acc_data = []
                     for i in range(_end_page):
-                        # print(f'### page 0x{i+1:04x}')
-                        # dump_data(ret[i*237:(i+1)*237])
-                        dump_acc_data(ret[i*237+43:(i+1)*237-2], i, vibration_end_time)
-
-                    # ret = serial_read_acc(ser, _payload, _end_page, vibration_end_time)
-                    # print(ret)
+                        acc_data = acc_data + read_acc_data_pages(ret[i*237+43:(i+1)*237-2], i, vibration_start_timestamp)
+                    for _data in acc_data:
+                        influxDB.write(_data)
 
             vibration_flag = False
 
