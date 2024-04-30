@@ -17,6 +17,7 @@ import influxdb
 import influxdb_client, time
 from influxdb_client import Point
 from influxdb_client.client.write_api import WriteOptions
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 # シリアルポートの設定
 SERIAL_PORT = "COM3"
@@ -30,6 +31,12 @@ port = 8086
 database ="sensor_2jcie_bu01_kh1"
 username = "sensor"
 password = "sensor_pw"
+
+url = "http://localhost:8086"
+token = 'diMCxI0gpTQp8q476aEpz2v6VlmMgNWcQ5ObCoVp3cgKoZtrvvM_o7sKGfVrt2tnjNFXH1n5a7gSF3VPn1HMTg=='
+org = 'saitama university'
+bucket ="sensor_2jcie_bu01_kh1"
+
 
 def calc_crc(buf, length):
     """
@@ -172,8 +179,13 @@ def read_acc_data_pages(_acc_data, _page, _time):
 # InfluxDB にデータを格納するためのクラス
 class Database:
     def __init__(self, _host, _port, _database, _username, _password):
+    # def __init__(self, _url, _token, _org, _bucket):
         if INFLUXDB_ACTIVE:
             self.influx = influxdb.InfluxDBClient(host=_host, port=_port, database=_database, username=_username, password=_password)
+            # self.influx = influxdb_client.InfluxDBClient(url=_url, token=_token, org=_org)
+            # self.write_api = self.influx.write_api(write_options=SYNCHRONOUS)
+            # self.bucket = _bucket
+            # self.org = _org
 
     def write(self, data):
         _field_data = {}
@@ -187,17 +199,27 @@ class Database:
             'time': datetime.utcnow(),
             'fields': _field_data
         }]
+
+        # point = Point("2jciebu").tag("location", "home").time(data["time_measured"])
+        # for key in data.keys():
+        #     if key != "time_measured":
+        #         point.field(key, data[key])
+    
         if INFLUXDB_ACTIVE:
             self.influx.write_points(json_body)
+            # print(self.write_api.write(bucket=self.bucket, org=self.org, record=point))
         else:
-            print('(to_InfluxDB)', json_body)
+            print('(to_InfluxDB)', data)
 
     def close(self):
         if INFLUXDB_ACTIVE:
             self.influx.close()
+            # self.write_api.close()
+            # self.influx.close()
 
 # InfluxDB のデータベースをオープン
 influxDB = Database(host, port, database, username, password)
+# influxDB = Database(url, token, org, bucket)
 
 # シリアルポートをオープン
 ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
