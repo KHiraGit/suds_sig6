@@ -10,12 +10,14 @@
 # This sample tested python 3.11.
 
 import sys
+import os
+import re
 import time
 import asyncio
 from bleak import BleakScanner
 from datetime import datetime
 
-# デバッグ時、テスト時はTrueにすると、受信したデータを表示します。
+# デバッグ設定： Trueにすると受信したデータを標準出力に出力、Falseにするとデータをファイルに出力
 DEBUG = False
 
 # データ出力回数のカウンター
@@ -23,6 +25,14 @@ counter = 0
 
 # 受信したデータモード1のデータを格納する変数
 data_mode = 0
+prev_data_mode = 0
+prev_seq_no = 0
+
+# 受信したデータをCSV形式でユニットごとに出力するフォルダ
+output_folder = 'csv_files'
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+output_files = []
 
 def bytetoint(buf, sig):
     """
@@ -247,7 +257,7 @@ def advcallback(dev, advdata):
     """
     discrimination of advertising mode  
     """
-    global counter, data_mode
+    global counter, data_mode, prev_data_mode, prev_seq_no, output_files
 
     if ( dev.name == 'Rbt' ) :
         if ( 0x02D5 in advdata.manufacturer_data.keys() ): #0x02D5=companyID
@@ -278,25 +288,36 @@ def advcallback(dev, advdata):
 
             if len(_data_dict) > 0:
 
-                if counter == 0:
+                # 出力先ファイル名を生成
+                _output_file = os.path.join(output_folder + '/' + re.sub(':', '', dev.address) + '.csv')
+                if _output_file not in output_files:
+                    output_files.append(_output_file)
+                    print(f'出力先({len(output_files)}):', _output_file)
+
+                if not os.path.exists(_output_file):
                     # _data_dictのキーをCSVのヘッダーとして出力
-                    _header = 'datetime,timestamp,address,data_mode,'+','.join(_data_dict.keys())
+                    _header = 'datetime,timestamp,data_mode,'+','.join(_data_dict.keys())
                 else:
                     _header = ''
 
-                # データ受信時刻とデバイスのアドレスを出力
-                _output = '"'+datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'",'+str(datetime.utcnow().timestamp())+','+dev.address+','+str(_data_mode)+','
-
-                # _data_dictの値をCSV形式で出力
+                # データ受信時刻とデバイスのアドレスと_data_dictの値を出力
+                _output = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+','+str(datetime.utcnow().timestamp())+','+str(_data_mode)+','
                 _output = _output + ','.join(map(str, _data_dict.values()))
 
-                if DEBUG or True:
-                    if len(_header) > 0:
-                        print(_header)
-                    print(_output)
+                if prev_data_mode != _data_mode or prev_seq_no != _data_dict['sequence_number']:
+                    if DEBUG:
+                        if len(_header) > 0:
+                            print(_output_file, '>', _header)
+                        print(_output_file, '>', _output)
+                    else:
+                        with open(_output_file, 'a') as f:
+                            if len(_header) > 0:
+                                f.write(_header + '\n')
+                            f.write(_output + '\n')
 
+                prev_data_mode = _data_mode
+                prev_seq_no = _data_dict['sequence_number']
                 counter = counter + 1
-
 
     
             if DEBUG:
@@ -318,6 +339,9 @@ if __name__ == '__main__':
     advtype03.type2seq_no = None
     advtype04.type1seq_no = None
     advtype04.type2seq_no = None
+
+    print('環境センサ(2JCIE-BU01)からのデータの受信を開始... (終了は Ctrl-C を押下)')
+
     try:
         loop = asyncio.new_event_loop()
         while True:
