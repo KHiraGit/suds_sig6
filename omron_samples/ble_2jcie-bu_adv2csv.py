@@ -38,6 +38,9 @@ output_files = []
 record_interval = 60
 last_record_time = {}
 
+
+# 以下、プログラム・関数定義の本体
+
 def bytetoint(buf, sig):
     """
     bytes data retrieved from 2JCIE-BU01 to integer.
