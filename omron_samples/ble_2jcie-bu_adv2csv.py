@@ -34,6 +34,10 @@ if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 output_files = []
 
+# データを記録する間隔の設定 (advertising packet の受信なので正確な設定にはなりません)
+record_interval = 60
+last_record_time = {}
+
 def bytetoint(buf, sig):
     """
     bytes data retrieved from 2JCIE-BU01 to integer.
@@ -257,7 +261,7 @@ def advcallback(dev, advdata):
     """
     discrimination of advertising mode  
     """
-    global counter, data_mode, prev_data_mode, prev_seq_no, output_files
+    global counter, data_mode, prev_data_mode, prev_seq_no, output_files, record_interval, last_record_time
 
     if ( dev.name == 'Rbt' ) :
         if ( 0x02D5 in advdata.manufacturer_data.keys() ): #0x02D5=companyID
@@ -289,35 +293,39 @@ def advcallback(dev, advdata):
             if len(_data_dict) > 0:
 
                 # 出力先ファイル名を生成
-                _output_file = os.path.join(output_folder + '/' + re.sub(':', '', dev.address) + '.csv')
-                if _output_file not in output_files:
-                    output_files.append(_output_file)
-                    print(f'出力先({len(output_files)}):', _output_file)
+                device_address = re.sub(':', '', dev.address)
+                if device_address not in last_record_time.keys() or (datetime.utcnow().timestamp() - last_record_time[device_address]) > record_interval:
+                    last_record_time[device_address] = datetime.utcnow().timestamp()
 
-                if not os.path.exists(_output_file):
-                    # _data_dictのキーをCSVのヘッダーとして出力
-                    _header = 'datetime,timestamp,data_mode,'+','.join(_data_dict.keys())
-                else:
-                    _header = ''
+                    _output_file = os.path.join(output_folder + '/' + device_address + '.csv')
+                    if _output_file not in output_files:
+                        output_files.append(_output_file)
+                        print(f'出力先({len(output_files)}):', _output_file)
 
-                # データ受信時刻とデバイスのアドレスと_data_dictの値を出力
-                _output = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+','+str(datetime.utcnow().timestamp())+','+str(_data_mode)+','
-                _output = _output + ','.join(map(str, _data_dict.values()))
-
-                if prev_data_mode != _data_mode or prev_seq_no != _data_dict['sequence_number']:
-                    if DEBUG:
-                        if len(_header) > 0:
-                            print(_output_file, '>', _header)
-                        print(_output_file, '>', _output)
+                    if not os.path.exists(_output_file):
+                        # _data_dictのキーをCSVのヘッダーとして出力
+                        _header = 'datetime,timestamp,data_mode,'+','.join(_data_dict.keys())
                     else:
-                        with open(_output_file, 'a') as f:
-                            if len(_header) > 0:
-                                f.write(_header + '\n')
-                            f.write(_output + '\n')
+                        _header = ''
 
-                prev_data_mode = _data_mode
-                prev_seq_no = _data_dict['sequence_number']
-                counter = counter + 1
+                    # データ受信時刻とデバイスのアドレスと_data_dictの値を出力
+                    _output = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+','+str(datetime.utcnow().timestamp())+','+str(_data_mode)+','
+                    _output = _output + ','.join(map(str, _data_dict.values()))
+
+                    if prev_data_mode != _data_mode or prev_seq_no != _data_dict['sequence_number']:
+                        if DEBUG:
+                            if len(_header) > 0:
+                                print(_output_file, '>', _header)
+                            print(_output_file, '>', _output)
+                        else:
+                            with open(_output_file, 'a') as f:
+                                if len(_header) > 0:
+                                    f.write(_header + '\n')
+                                f.write(_output + '\n')
+
+                    prev_data_mode = _data_mode
+                    prev_seq_no = _data_dict['sequence_number']
+                    counter = counter + 1
 
     
             if DEBUG:
