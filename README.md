@@ -14,8 +14,8 @@ https://github.com/omron-devhub/2jciebu-usb-raspberrypi
   * ライブラリは pip install -r requitements.txt コマンドでインストール
 
 * 動作確認
+  * USB接続で、LED点灯、各種データの受信、加速度データを含む各種データを受信するプログラム (標準出力に出力 / CSVファイルに保存 / InfluxDBへ保存)
   * BLE接続(ペアリングなしのbluetooth接続)でデータを受信するサンプルプログラム (標準出力に出力 / CSVファイルに保存)
-  * USB接続で、LED点灯、各種データの受信、加速度データを含む各種データを受信するプログラム (標準出力に出力 / InfluxDBへ保存)
 
 
 
