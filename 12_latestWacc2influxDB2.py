@@ -168,6 +168,8 @@ def read_acc_data_pages(_acc_data, _page, _time):
     # print(len(_acc_data))
     retval = []
     for i in range(0, len(_acc_data)-1, 6):
+        if i+5 >= len(_acc_data):
+            break
         x = s16(_acc_data[i+1] << 8 | _acc_data[i]) * 0.1
         y = s16(_acc_data[i+3] << 8 | _acc_data[i+2]) * 0.1
         z = s16(_acc_data[i+5] << 8 | _acc_data[i+4]) * 0.1
