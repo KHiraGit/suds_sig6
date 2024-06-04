@@ -258,6 +258,7 @@ try:
             print(f'({i})', ret)
 
         if vibration_flag == False and ret["vibration_information"] != 0:
+            influxDB.write(ret)
             vibration_flag = True
             vibration_start_time = ret["time_measured"]
             vibration_start_timestamp = datetime.utcnow().timestamp()
@@ -269,6 +270,7 @@ try:
 
 
         if vibration_flag == True and ret["vibration_information"] == 0:
+            influxDB.write(ret)
             # Read the current timecounter
             payload = bytearray([0x01, # Read 0x01, Write 0x02
                                 0x01, 0x52, # Latest time counter (Address: 0x5201 をリトルエンディアンで送信)
