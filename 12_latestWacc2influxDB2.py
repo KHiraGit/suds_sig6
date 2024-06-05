@@ -98,12 +98,16 @@ def serial_read(_ser, _payload, timeout=0.0):
             time.sleep(0.1)
 
     if ret[0:2] != b'\x52\x42':
-        raise print("Invalid Header", ret)
+        print("Invalid Header", ret)
+        _ser.reset_input_buffer()
+        _ser.reset_output_buffer()
     if ret[4] != 1 and ret[4] != 2:
         for i in range(len(ret)):
             print(f'({i}) {ret[i]:02x}', end=' ')
         print()
-        raise print("Error Response", hex(ret[4]))
+        print("Error Response", hex(ret[4]))
+        _ser.reset_input_buffer()
+        _ser.reset_output_buffer()
     return ret
 
 def dump_data(_ret):
