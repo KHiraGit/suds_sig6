@@ -99,17 +99,17 @@ def serial_read(_ser, _payload, timeout=0.0):
 
     if ret[0:2] != b'\x52\x42':
         print("Invalid Header", ret)
-        _ser.reset_input_buffer()
-        _ser.reset_output_buffer()
         ret = b''
     elif ret[4] != 1 and ret[4] != 2:
         for i in range(len(ret)):
             print(f'({i}) {ret[i]:02x}', end=' ')
         print()
         print("Error Response", hex(ret[4]))
-        _ser.reset_input_buffer()
-        _ser.reset_output_buffer()
         ret = b''
+
+    _ser.reset_input_buffer()
+    _ser.reset_output_buffer()
+
     return ret
 
 def dump_data(_ret):
@@ -286,6 +286,7 @@ try:
             ret = serial_read(ser, payload)
             current_timecounter = int.from_bytes(ret[7:15], 'little')
             print(f'current_timecounter: {current_timecounter} (0x{current_timecounter:016x})')
+            print(f'({i})', ret)
 
             if earthquake_flag:
                 # Read the accelleration memory header.
