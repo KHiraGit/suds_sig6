@@ -98,12 +98,18 @@ def serial_read(_ser, _payload, timeout=0.0):
             time.sleep(0.1)
 
     if ret[0:2] != b'\x52\x42':
-        raise print("Invalid Header", ret)
-    if ret[4] != 1 and ret[4] != 2:
+        print("Invalid Header", ret)
+        ret = b''
+    elif ret[4] != 1 and ret[4] != 2:
         for i in range(len(ret)):
             print(f'({i}) {ret[i]:02x}', end=' ')
         print()
-        raise print("Error Response", hex(ret[4]))
+        print("Error Response", hex(ret[4]))
+        ret = b''
+
+    _ser.reset_input_buffer()
+    _ser.reset_output_buffer()
+
     return ret
 
 def dump_data(_ret):
@@ -168,6 +174,8 @@ def read_acc_data_pages(_acc_data, _page, _time):
     # print(len(_acc_data))
     retval = []
     for i in range(0, len(_acc_data)-1, 6):
+        if i+5 >= len(_acc_data):
+            break
         x = s16(_acc_data[i+1] << 8 | _acc_data[i]) * 0.1
         y = s16(_acc_data[i+3] << 8 | _acc_data[i+2]) * 0.1
         z = s16(_acc_data[i+5] << 8 | _acc_data[i+4]) * 0.1
@@ -258,6 +266,7 @@ try:
             print(f'({i})', ret)
 
         if vibration_flag == False and ret["vibration_information"] != 0:
+            influxDB.write(ret)
             vibration_flag = True
             vibration_start_time = ret["time_measured"]
             vibration_start_timestamp = datetime.utcnow().timestamp()
@@ -269,12 +278,15 @@ try:
 
 
         if vibration_flag == True and ret["vibration_information"] == 0:
+            influxDB.write(ret)
             # Read the current timecounter
             payload = bytearray([0x01, # Read 0x01, Write 0x02
                                 0x01, 0x52, # Latest time counter (Address: 0x5201 をリトルエンディアンで送信)
                                 ])
             ret = serial_read(ser, payload)
             current_timecounter = int.from_bytes(ret[7:15], 'little')
+            print(f'current_timecounter: {current_timecounter} (0x{current_timecounter:016x})')
+            print(f'({i})', ret)
 
             if earthquake_flag:
                 # Read the accelleration memory header.
@@ -285,7 +297,7 @@ try:
                                     ])
                 ret = serial_read(ser, payload)
                 data_timecounter = int.from_bytes(ret[13:21], 'little')
-                print(f'Earthquake end timecounter: {data_timecounter}')
+                print(f'Earthquake end timecounter: {data_timecounter} (0x{data_timecounter:016x})')
 
                 if data_timecounter != 0:
                     # Calculate time of vibration end.
@@ -321,7 +333,7 @@ try:
                                     ])
                 ret = serial_read(ser, payload)
                 data_timecounter = int.from_bytes(ret[13:21], 'little')
-                print(f'Vibration end timecounter: {data_timecounter}')
+                print(f'Vibration end timecounter: {data_timecounter} (0x{data_timecounter:016x})')
 
                 if data_timecounter != 0:
                     # Calculate time of vibration end.
