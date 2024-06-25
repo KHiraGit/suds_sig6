@@ -1,0 +1,7 @@
+time_measured,temperature,relative_humidity,ambient_light,barometric_pressure,sound_noise,eTVOC,eCO2,discomfort_index,heat_stroke,vibration_information,si_value,pga,seismic_intensity,temperature_flag,relative_humidity_flag,ambient_light_flag,barometric_pressure_flag,sound_noise_flag,eTVOC_flag,eCO2_flag,discomfort_index_flag,heat_stroke_flag,si_value_flag,pga_flag,seismic_intensity_flag
+2024/06/25 13:21:48.685728,30.06,68.8,41,1006.493,52.55,15,503,81.28,28.46,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0
+2024/06/25 13:23:06.871737,29.94,69.14,41,1006.5,58.13,14,492,81.15,28.49,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0
+2024/06/25 13:24:32.103938,29.74,69.66,41,1006.556,55.24,13,487,80.93,28.28,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0
+2024/06/25 13:24:34.982336,29.75,69.62,41,1006.565,63.65,13,487,80.94,28.3,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0
+2024/06/25 13:24:36.740704,29.75,69.62,41,1006.566,58.91,14,496,80.94,28.3,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0
+2024/06/25 13:24:38.389590,29.75,69.63,41,1006.567,73.64,13,487,80.94,28.3,0,0.0,0.0,0.0,0,0,0,0,0,0,0,0,0,0,0,0

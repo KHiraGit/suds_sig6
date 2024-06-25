@@ -72,6 +72,11 @@ print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 # シリアルポートをオープン
 ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
 
+print()
+print('照度センサの値によりLEDの色を変更')
+print('( Ctrl+C でプログラムを終了します )')
+print()
+
 # try-except文を使って、Ctrl+C でプログラムを終了することができるようにする
 try: 
     # LED を点灯 (照度センサの値によって色を変更)

@@ -15,7 +15,10 @@ import re
 import time
 import asyncio
 from bleak import BleakScanner
+import bleak
 from datetime import datetime
+
+print('# bleak author:', bleak.__author__)
 
 # デバッグ設定： Trueにすると受信したデータを標準出力に出力、Falseにするとデータをファイルに出力
 DEBUG = False

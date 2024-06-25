@@ -13,7 +13,8 @@ import sys
 import time
 import asyncio
 from bleak import BleakScanner
-
+import bleak
+print('# bleak author:', bleak.__author__)
 
 def bytetoint(buf, sig):
     """

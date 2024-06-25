@@ -14,6 +14,8 @@ from datetime import datetime
 from struct import pack, unpack
 import serial
 
+print('# serial', serial.__version__)
+
 # シリアルポートの設定
 SERIAL_PORT = "COM3"
 SERIAL_BAUDRATE = 115200
@@ -35,6 +37,17 @@ def calc_crc(buf, length):
     crcL = crc & 0x00FF
     return (bytearray([crcL, crcH]))
 
+def dump_packet(_packet):
+    """
+    パケットのダンプを表示する関数
+    """
+    print(f'(len={len(_packet)})')
+    for i in range(len(_packet)):
+        print(f'({i}) {_packet[i]:02x}', end=' ')
+        if i % 16 == 15:
+            print()
+    print()
+
 def serial_write(_ser, _payload):
     """
     環境センサにコマンドを送信する関数
@@ -44,6 +57,7 @@ def serial_write(_ser, _payload):
     _command = _command + calc_crc(_command, len(_command))
     _ser.write(_command)
     _ser.flush()
+    dump_packet(_command)
     return
 
 # 現在時刻を表示
@@ -53,32 +67,39 @@ print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, serial.EIGHTBITS, serial.PARITY_NONE, write_timeout=1, timeout=1)
 
 # LED を赤色で点灯
+print('LEDを赤色で点灯')
 payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                      0x01, 0x00, # LED常時点灯 (0x0001 をリトルエンディアンで送信)
                      0xff, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
 serial_write(ser, payload)
 
-
-# 10秒待機
+# 1秒待機
 time.sleep(1)
 
+print('レスポンス')
+_ser_len = ser.inWaiting()
+ret = ser.read(_ser_len)
+dump_packet(ret)
+
+# 10秒待機
+time.sleep(10)
+
 # LED を消灯
+print('LEDを消灯')
 payload = bytearray([0x02, # Read 0x01, Write 0x02
                      0x11, 0x51, # LED設定 (0x5111 をリトルエンディアンで送信)
                      0x00, 0x00, # LED常時消灯 (0x0000 をリトルエンディアンで送信)
                      0x00, 0x00, 0x00]) # 色設定　RGB ここでは赤に設定
 serial_write(ser, payload)
 
+# 1秒待機
 time.sleep(1)
 
+print('レスポンス')
 _ser_len = ser.inWaiting()
 ret = ser.read(_ser_len)
-print(f'len={len(ret)} len(payload)={ret[2] | ret[3] << 8}')
-for i in range(len(ret)):
-    print(f'({i}) {ret[i]:02x}', end=' ')
-    if i % 16 == 15:
-        print()
+dump_packet(ret)
 
 # シリアルポートをクローズ
 ser.close()
