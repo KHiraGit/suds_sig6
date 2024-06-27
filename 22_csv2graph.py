@@ -3,7 +3,10 @@
 # Description: CSV形式で保存したセンサーデータのグラフを表示 （ブラウザを起動して表示）
 # Author: Kaoru Hiramatsu, Saitama Univ.
 # Created: 2024/06/26
-# Last modified: 2024/06/26
+# Last modified: 2024/06/27
+# 
+# 使い方: python 22_csv2plot.py (CSVファイル名)
+#
 
 import pandas as pd
 import sys

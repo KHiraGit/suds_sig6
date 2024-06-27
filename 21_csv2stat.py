@@ -3,7 +3,10 @@
 # Description: CSV形式で保存したセンサーデータの統計情報を表示する
 # Author: Kaoru Hiramatsu, Saitama Univ.
 # Created: 2024/06/26
-# Last modified: 2024/06/26
+# Last modified: 2024/06/27
+# 
+# 使い方: python 21_csv2stat.py (CSVファイル名)
+#
 
 import pandas as pd
 import sys
