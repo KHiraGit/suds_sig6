@@ -125,7 +125,7 @@ def get_current_data(_ser):
         values = unpack('<hHHLHHHHhBHHH', ret[8:35])
         units = [0.01, 0.01, 1, 0.001, 0.01, 1, 1, 0.01, 0.01, 1, 0.1, 0.1, 0.001]
         retval = dict([ [k, v * u] for k, v, u in zip(fields, values, units)])
-        retval = {"time_measured": datetime.utcnow()} | retval
+        retval = {"time_measured": datetime.now()} | retval
         return [retval]
     else:
         return None
@@ -169,7 +169,8 @@ def read_acc_data_pages(_acc_data, _page, _time):
         x = s16(_acc_data[i+1] << 8 | _acc_data[i]) * 0.1
         y = s16(_acc_data[i+3] << 8 | _acc_data[i+2]) * 0.1
         z = s16(_acc_data[i+5] << 8 | _acc_data[i+4]) * 0.1
-        _timestamp = _time + (_page*32+i/6) * 0.01
+        # _timestamp = _time + (_page*32+i/6) * 0.01
+        _timestamp = datetime.fromtimestamp(_time + (_page*32+i/6) * 0.01)
         # print(f'{_page} {i/6} x={x:.2f} y={y:.2f} z={z:.2f}', _timestamp, datetime.fromtimestamp(_timestamp), _timestamp)
         retval.append({"time_measured": _timestamp, 'acc_x': x, 'acc_y': y, 'acc_z': z})
     return retval
@@ -224,14 +225,14 @@ ret = None
 while ret is None:
     ret = get_current_data(ser)
     time.sleep(1)
-print('# start sensing data', datetime.utcnow(), ret)
+print('# start sensing data', datetime.now(), ret)
 
 # 地震・振動によって記録された加速度データを確認し、InfluxDBに格納するためのフラグ
 earthquake_flag = False
 vibration_flag = False
 vibration_start_time = 0
 vibration_end_time = 0
-vibration_start_datetime = datetime.utcnow().timestamp()
+vibration_start_datetime = datetime.now().timestamp()
 
 # try-except文を使って、Ctrl+C でプログラムを終了することができるように設定
 try: 
@@ -247,19 +248,19 @@ try:
         if i % INTERVAL == 0:
             data2csv(ret, _output_file_head)
 
-        if vibration_flag == False and ret["vibration_information"] != 0:
+        if vibration_flag == False and ret[0]["vibration_information"] != 0:
             data2csv(ret, _output_file_head)
             vibration_flag = True
-            vibration_start_time = ret["time_measured"]
-            vibration_start_timestamp = datetime.utcnow().timestamp()
-            if ret["vibration_information"] == 2:
-                print("### Earthquake detected", f'({ret["time_measured"]})')
+            vibration_start_time = ret[0]["time_measured"]
+            vibration_start_timestamp = datetime.now().timestamp()
+            if ret[0]["vibration_information"] == 2:
+                print("### Earthquake detected", f'({ret[0]["time_measured"]})')
                 earthquake_flag = True
             else:
-                print("### vibration detected", f'({ret["time_measured"]})')
+                print("### vibration detected", f'({ret[0]["time_measured"]})')
 
 
-        if vibration_flag == True and ret["vibration_information"] == 0:
+        if vibration_flag == True and ret[0]["vibration_information"] == 0:
             data2csv(ret, _output_file_head)
             # Read the current timecounter
             payload = bytearray([0x01, # Read 0x01, Write 0x02
@@ -268,7 +269,7 @@ try:
             ret = serial_read(ser, payload)
             current_timecounter = int.from_bytes(ret[7:15], 'little')
             print(f'current_timecounter: {current_timecounter} (0x{current_timecounter:016x})')
-            print(f'({i})', ret)
+            print(f'({i})', ret[0])
 
             if earthquake_flag:
                 # Read the accelleration memory header.
@@ -338,8 +339,7 @@ try:
                     acc_data = []
                     for i in range(_end_page):
                         acc_data = acc_data + read_acc_data_pages(ret[i*237+43:(i+1)*237-2], i, vibration_start_timestamp)
-                    for _data in acc_data:
-                        data2csv(_data, _output_file_head)
+                    data2csv(acc_data, _output_file_head)
 
             vibration_flag = False
 
