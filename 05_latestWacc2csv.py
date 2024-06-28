@@ -303,7 +303,7 @@ try:
                     for i in range(_end_page):
                         acc_data = acc_data + read_acc_data_pages(ret[i*237+43:(i+1)*237-2], i, vibration_start_timestamp)
                     for _data in acc_data:
-                        data2csv(_data, _output_file_head)
+                        data2csv(acc_data, _output_file_head)
 
                 earthquake_flag = False
 
