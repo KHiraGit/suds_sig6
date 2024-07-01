@@ -125,7 +125,8 @@ def get_current_data(_ser):
         values = unpack('<hHHLHHHHhBHHH', ret[8:35])
         units = [0.01, 0.01, 1, 0.001, 0.01, 1, 1, 0.01, 0.01, 1, 0.1, 0.1, 0.001]
         retval = dict([ [k, v * u] for k, v, u in zip(fields, values, units)])
-        retval = {"time_measured": datetime.now()} | retval
+        # retval = {"time_measured": datetime.now()} | retval # python 3.9 以降
+        retval = {**{"time_measured": datetime.now()}, **retval}  # python 3.8 以前も含めた書き方
         return [retval]
     else:
         return None
